@@ -1,0 +1,805 @@
+<html>
+
+<head>
+    <title>地形分類図（PMTiles）+浸水推定図（輪郭線）+自然災害伝承碑</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src='https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css' rel='stylesheet' />
+    <script src='maplibre-gl-gsi-terrain.js'></script>
+    <script src="https://unpkg.com/pmtiles@2.7.0/dist/index.js"></script>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-overlay {
+            font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            position: absolute;
+            width: 220px;
+            bottom: 20px;
+            left: 0;
+            padding: 10px;
+        }
+
+        .map-overlay .map-overlay-inner {
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .map-overlay label {
+            display: block;
+            margin: 0 0 0px;
+            font-size: 12px;
+            top: 100px;
+            left: 10px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .map-overlay input {
+            background-color: transparent;
+            display: inline-block;
+            width: 100%;
+            position: relative;
+            margin: 0;
+            cursor: ew-resize;
+        }
+
+        .legend {
+            background-color: #fff;
+            border-radius: 3px;
+            bottom: 60px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
+            font: 12px/14px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            padding: 10px;
+            position: absolute;
+            right: 10px;
+            z-index: 1;
+            line-height: 10px;
+            height: auto;
+        }
+
+        .legend h4 {
+            margin: 0 0 10px;
+        }
+
+        .legend div span {
+            border-radius: 50%;
+            display: inline-block;
+            height: 15px;
+            margin-right: 10px;
+            width: 15px;
+            color: orangered
+        }
+
+        .square {
+            width: 15px;
+            height: 15px;
+            /*border-radius: 4px;*/
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="map-overlay top">
+        <div class="map-overlay-inner">
+            <label>地形分類 不透明度: <span id="chikei-slider-opacity-value">50%</span></label>
+            <input id="chikei-slider-opacity" type="range" min="0" max="100" step="1" value="50">
+            <label>陰影起伏図 不透明度: <span id="inei-slider-opacity-value">50%</span></label>
+            <input id="inei-slider-opacity" type="range" min="0" max="100" step="1" value="50">
+        </div>
+    </div>
+    <div id='legend' class='legend'>
+        <h4>地形分類</h4>
+        <div class="square" style='background-color: #d9cbae; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">山地</span><br>
+        <div class="square" style='background-color: #9466ab; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">崖･段丘崖</span><br>
+        <div class="square" style='background-color: #cc99ff; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">地すべり</span><br>
+        <div class="square" style='background-color: #ffaa00; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">台地・段丘</span><br>
+        <div class="square" style='background-color: #99804d; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">山麓堆積地形</span><br>
+        <div class="square" style='background-color: #cacc60; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">扇状地</span><br>
+        <div class="square" style='background-color: #ffff33; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">自然堤防</span><br>
+        <div class="square" style='background-color: #fbe09d; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">天井川</span><br>
+        <div class="square" style='background-color: #ffff99; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">砂州・砂丘</span><br>
+        <div class="square" style='background-color: #a3cc7e; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">凹地・浅い谷</span><br>
+        <div class="square" style='background-color: #bbff99; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">氾濫平野</span><br>
+        <div class="square" style='background-color: #00d1a4; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">後背低地・湿地</span><br>
+        <div class="square" style='background-color: #6699ff; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">旧河道</span><br>
+        <div class="square" style='background-color: #1f9999; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">落堀</span><br>
+        <div class="square" style='background-color: #9f9fc4; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">河川敷・浜</span><br>
+        <div class="square" style='background-color: #e5ffff; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">水部</span><br>
+        <div class="square" style='background-color: #779999; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">旧水部</span><br>
+        <div class="square" style='background-color: #85c4d1; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">切土地</span><br>
+        <div class="square" style='background-color: #8ad8b6; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">農耕平坦化地</span><br>
+        <div class="square" style='background-color: #ef8888; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">盛土地・埋立地</span><br>
+        <div class="square" style='background-color: #ff4f4f; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">高い盛土地</span><br>
+        <div class="square" style='background-color: #c37aff; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">干拓地</span><br>
+        <div class="square" style='background-color: #ffe8e8; display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">改変工事中</span><br>
+        <div><img src="./img/location-pin2_red.png" alt="自然災害伝承碑" style="width:20px; height:20px;" />自然災害伝承碑</div><br>
+        <div class="square"
+            style='background-color: rgba(255, 0, 0, 0.1); outline: 2px solid;outline-color: rgba(255, 0, 0, 1); display: inline-block;'>
+        </div>
+        <span style="margin-left: 5px;">浸水範囲輪郭線</span>
+    </div>
+    <script type="text/javascript">
+        let protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol("pmtiles", protocol.tile);
+
+        // 地形分類ベクトルタイル
+        let PMTiles_URL = "https://xs489works.xsrv.jp/pmtiles-data/landform/landformclassification1_modified.pmtiles";
+
+        const p = new pmtiles.PMTiles(PMTiles_URL)
+        p.getMetadata().then((res) => console.log(res));
+
+        protocol.add(p);
+
+        /*
+        // add the PMTiles plugin to the maplibregl global.
+        let protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol("pmtiles", protocol.tile);
+
+        // PLATEAU 2020_lod1_Building
+        let PM_PLATEAU_lod1_Building_URL = "https://pmtiles-data.s3.ap-northeast-1.amazonaws.com/plateau/PLATEAU_2020_LOD1.pmtiles";
+
+        const p = new pmtiles.PMTiles(PM_PLATEAU_lod1_Building_URL)
+        protocol.add(p);
+        */
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            // style: 'building3d.json',
+            style: 'std.json',
+            // style: 'https://tile2.openstreetmap.jp/styles/osm-bright/style.json',
+            zoom: 12.6,
+            minZoom: 1,
+            maxZoom: 23,
+            pitch: 60,
+            bearing: 66.6,
+            center: [130.53534, 33.34053],
+            hash: true,
+            attributionControl: false
+        });
+
+        // ズーム・回転
+        map.addControl(new maplibregl.NavigationControl());
+
+        // フルスクリーンモードのオンオフ
+        map.addControl(new maplibregl.FullscreenControl());
+
+        // 現在位置表示
+        map.addControl(new maplibregl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: false
+            },
+            fitBoundsOptions: { maxZoom: 18 },
+            trackUserLocation: true,
+            showUserLocation: true
+        }));
+
+        // スケール表示
+        map.addControl(new maplibregl.ScaleControl({
+            maxWidth: 200,
+            unit: 'metric'
+        }));
+
+        // Attributionを折りたたみ表示
+        map.addControl(new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: '（<a href="https://twitter.com/syanseto" target="_blank">Twitter</a> | <a href="https://github.com/shi-works/landformclassification-on-maplibre-gl-js" target="_blank">Github</a>） '
+        }));
+
+        // 3D地形コントロール
+        map.addControl(
+            new maplibregl.TerrainControl({
+                source: 'gsidem',
+                exaggeration: 1 // 標高を強調する倍率
+            })
+        );
+
+        map.on('load', () => {
+            // 標高タイル
+            map.addSource("gsidem", {
+                type: 'raster-dem',
+                tiles: [
+                    'gsidem://https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png',
+                ],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#dem" target="_blank">地理院タイル(標高タイル)</a>',
+                tileSize: 256
+            });
+
+            map.setTerrain({ 'source': 'gsidem', 'exaggeration': 1 });
+
+            // 陰影起伏図
+            map.addSource("hillshade", {
+                type: 'raster',
+                tiles: [
+                    'https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',
+                ],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#hillshademap" target="_blank">地理院タイル(陰影起伏図)</a>',
+                tileSize: 256
+            });
+
+            map.addLayer({
+                id: 'hillshade-tiles',
+                type: 'raster',
+                source: 'hillshade',
+                minzoom: 2,
+                maxzoom: 18,
+                paint: {
+                    'raster-opacity': 0.5
+                }
+            });
+
+            // スライダーで陰影起伏図の不透明度を制御
+            const inei_sliderOpactiy = document.getElementById('inei-slider-opacity');
+            const inei_sliderOpactiyValue = document.getElementById('inei-slider-opacity-value');
+
+            inei_sliderOpactiy.addEventListener('input', (e) => {
+                map.setPaintProperty(
+                    'hillshade-tiles',
+                    'raster-opacity',
+                    parseInt(e.target.value, 10) / 100
+                );
+                inei_sliderOpactiyValue.textContent = e.target.value + '%';
+            });
+
+            // 地形分類ベクトルタイル
+            map.addSource("landformclassification1", {
+                type: "vector",
+                url: "pmtiles://" + PMTiles_URL,
+                attribution: '<a href="https://github.com/gsi-cyberjapan/experimental_landformclassification" target="_blank">国土地理院ベクトルタイル提供実験（地形分類）</a>',
+            });
+
+            /*
+            map.addSource("landformclassification1", {
+                type: "vector",
+                tiles: [
+                    "https://optgeo.github.io/one/zxy/{z}/{x}/{y}.pbf"
+                ],
+                attribution: '<a href="https://github.com/gsi-cyberjapan/experimental_landformclassification" target="_blank">国土地理院ベクトルタイル提供実験（地形分類）</a>',
+                minzoom: 10,
+                maxzoom: 12
+            });
+            */
+
+            map.addLayer({
+                "id": 'landformclassification1-tiles',
+                "source": "landformclassification1",
+                "source-layer": "landformclassification1_modifiedfgb",
+                "type": "fill",
+                minzoom: 9,
+                maxzoom: 23,
+                "paint": {
+                    "fill-color": [
+                        "match",
+                        [
+                            "to-number",
+                            [
+                                "get",
+                                "code"
+                            ]
+                        ],
+                        [
+                            10101,
+                            1010101,
+                            11201,
+                            11202,
+                            11203,
+                            11204
+                        ],
+                        "#d9cbae",
+                        [
+                            10202,
+                            10204,
+                            2010201
+                        ],
+                        "#9466ab",
+                        [
+                            10205,
+                            10206
+                        ],
+                        "#cc99ff",
+                        [
+                            10301,
+                            10302,
+                            10303,
+                            10304,
+                            10308,
+                            10314,
+                            10305,
+                            10508,
+                            2010101,
+                            10306,
+                            10307,
+                            10310,
+                            10312
+                        ],
+                        "#ffaa00",
+                        [
+                            10401,
+                            10402,
+                            10403,
+                            10404,
+                            10406,
+                            10407,
+                            3010101
+                        ],
+                        "#99804d",
+                        [
+                            10501,
+                            10502,
+                            3020101
+                        ],
+                        "#cacc60",
+                        [
+                            10503,
+                            3040101
+                        ],
+                        "#ffff33",
+                        [
+                            10506,
+                            10507,
+                            10801
+                        ],
+                        "#fbe09d",
+                        [
+                            10504,
+                            10505,
+                            10512,
+                            3050101
+                        ],
+                        "#ffff99",
+                        [
+                            10601,
+                            2010301
+                        ],
+                        "#a3cc7e",
+                        [
+                            10701,
+                            3030101,
+                            10702,
+                            10705
+                        ],
+                        "#bbff99",
+                        [
+                            10703,
+                            10804,
+                            3030201
+                        ],
+                        "#00d1a4",
+                        [
+                            10704,
+                            3040201,
+                            3040202
+                        ],
+                        "#6699ff",
+                        [
+                            3040301
+                        ],
+                        "#1f9999",
+                        [
+                            10802,
+                            10803,
+                            10807,
+                            10808
+                        ],
+                        "#9f9fc4",
+                        [
+                            10805,
+                            10806,
+                            10901,
+                            10903,
+                            5010201
+                        ],
+                        "#e5ffff",
+                        [
+                            10904,
+                            5010301
+                        ],
+                        "#779999",
+                        [
+                            11001,
+                            11003,
+                            11009,
+                            11011,
+                            4010301
+                        ],
+                        "#85c4d1",
+                        [
+                            11002
+                        ],
+                        "#8ad8b6",
+                        [
+                            11004,
+                            11006,
+                            11007,
+                            11014
+                        ],
+                        "#ef8888",
+                        [
+                            4010201,
+                            11005
+                        ],
+                        "#ff4f4f",
+                        [
+                            11008,
+                            4010101
+                        ],
+                        "#c37aff",
+                        [
+                            11010
+                        ],
+                        "#ffe8e8",
+                        [
+                            999999
+                        ],
+                        "#144dfa",
+                        [
+                            101
+                        ],
+                        "#e6e600",
+                        [
+                            102
+                        ],
+                        "#00e2e6",
+                        [
+                            103
+                        ],
+                        "#2ae600",
+                        [
+                            104
+                        ],
+                        "#e60400",
+                        [
+                            105
+                        ],
+                        "#5e5ce6",
+                        [
+                            9999
+                        ],
+                        "#ff00ff",
+                        "#aaaaaa"
+                    ],
+                    'fill-opacity': 0.5
+                },
+            });
+
+            // スライダーで地形分類の不透明度を制御
+            const chikei_sliderOpactiy = document.getElementById('chikei-slider-opacity');
+            const chikei_sliderOpactiyValue = document.getElementById('chikei-slider-opacity-value');
+
+            chikei_sliderOpactiy.addEventListener('input', (e) => {
+                map.setPaintProperty(
+                    'landformclassification1-tiles',
+                    'fill-opacity',
+                    parseInt(e.target.value, 10) / 100
+                );
+                chikei_sliderOpactiyValue.textContent = e.target.value + '%';
+            });
+
+            /*
+            // PLATEAUベクトルタイル
+            map.addSource("lod1-Building", {
+                type: "vector",
+                url: "pmtiles://" + PM_PLATEAU_lod1_Building_URL,
+                attribution: '<a href="https://www.geospatial.jp/ckan/dataset/plateau">3D都市モデルProject PLATEAU 建築物データ（国土交通省）を加工して作成</a>'
+            });
+
+            // PLATEAUベクトルタイル
+            map.addLayer({
+                'id': 'lod1-Building',
+                'source': 'lod1-Building',
+                'source-layer': 'PLATEAU_2020_LOD1fgb',
+                "minzoom": 14,
+                "maxzoom": 18,
+                'layout': {
+                    'visibility': 'visible',
+                },
+                'type': 'fill-extrusion',
+                'paint': {
+                    "fill-extrusion-color": "#aaa",
+                    "fill-extrusion-opacity": 0.7,
+                    "fill-extrusion-height": ["get", "bldg_measuredHeight"]
+                }
+            });
+            */
+
+            // 浸水推定図輪郭線
+            map.addSource('shinsui-rinkaku', {
+                'type': 'geojson',
+                'data': './筑後川水系筑後川_20230710.geojson',
+                attribution: '<a href="https://www.gsi.go.jp/BOUSAI/R5_0629_heavyrain.html">令和5年6月29日からの大雨による浸水推定図（筑後川水系 筑後川）浸水範囲の輪郭線（国土地理院Webサイト）</a>'
+            });
+
+            // 浸水推定図輪郭線ラインレイヤ
+            map.addLayer({
+                'id': 'shinsui-rinkaku-line',
+                "type": "line",
+                'source': 'shinsui-rinkaku',
+                'paint': {
+                    'line-color': '#FF0000',
+                    'line-width': 2
+                }
+            });
+
+            // 浸水推定図輪郭線ポリゴンレイヤ
+            map.addLayer({
+                'id': 'shinsui-rinkaku-polygon',
+                "type": "fill",
+                'source': 'shinsui-rinkaku',
+                'paint': {
+                    'fill-color': '#FF0000',
+                    'fill-opacity': 0.1
+                }
+            });
+
+            // 地理院地図ベクトルタイル
+            map.addSource("gsibv-vectortile-source-1-4-16", {
+                type: "vector",
+                tiles: [
+                    "https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf"
+                ],
+                attribution: '<a href="https://github.com/gsi-cyberjapan/gsivectortile-3d-like-building">地理院地図Vector（仮称）</a>'
+            });
+
+            // 地理院地図ベクトルタイル
+            // タンク
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 13,
+                "maxzoom": 18,
+                "id": "buildings4302",
+                "metadata": { "name": "タンク" },
+                "type": "fill-extrusion",
+                "source-layer": "structurea",
+                "filter": ["all", ["==", "ftCode", 4302], ["==", "$type", "Polygon"]],
+                "paint": {
+                    // "fill-extrusion-color": "rgb(0,100,150)",
+                    "fill-extrusion-color": "rgb(242,234,226)",
+                    "fill-extrusion-opacity": 0.8,
+                    "fill-extrusion-height": 10
+                }
+            });
+
+            // 巨大構造物
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 13,
+                "maxzoom": 18,
+                "id": "buildings4301",
+                "metadata": { "name": "巨大構造物" },
+                "type": "fill-extrusion",
+                "source-layer": "structurea",
+                "filter": ["all", ["==", "ftCode", 4301], ["==", "$type", "Polygon"]],
+                "paint": {
+                    // "fill-extrusion-color": "rgb(0,100,150)",
+                    "fill-extrusion-color": "rgb(242,234,226)",
+                    "fill-extrusion-opacity": 0.8,
+                    "fill-extrusion-height": 100
+                }
+            });
+
+            // 普通無壁舎
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 14,
+                "maxzoom": 18,
+                "id": "buildings3111",
+                "metadata": { "name": "普通無壁舎" },
+                "type": "fill-extrusion",
+                "source-layer": "building",
+                "filter": ["all", ["==", "ftCode", 3111], ["==", "$type", "Polygon"]],
+                "paint": {
+                    // "fill-extrusion-color": "rgb(0,100,150)",
+                    "fill-extrusion-color": "rgb(242,234,226)",
+                    "fill-extrusion-opacity": 0.5,
+                    "fill-extrusion-height": 10
+                }
+            });
+
+            // 堅ろう無壁舎
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 13,
+                "maxzoom": 18,
+                "id": "buildings3112",
+                "metadata": { "name": "堅ろう無壁舎" },
+                "type": "fill-extrusion",
+                "source-layer": "building",
+                "filter": ["all", ["==", "ftCode", 3112], ["==", "$type", "Polygon"]],
+                "paint": {
+                    "fill-extrusion-color": "rgb(150,200,255)",
+                    "fill-extrusion-opacity": 0.5,
+                    "fill-extrusion-height": 40
+                }
+            });
+
+            // 普通建物
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 14,
+                "maxzoom": 18,
+                "id": "buildings3101",
+                "metadata": { "name": "普通建物" },
+                "type": "fill-extrusion",
+                "source-layer": "building",
+                "filter": ["all", ["==", "ftCode", 3101], ["==", "$type", "Polygon"]],
+                "paint": {
+                    // "fill-extrusion-color": "rgb(0,100,150)",
+                    "fill-extrusion-color": "rgb(242,234,226)",
+                    "fill-extrusion-opacity": 0.8,
+                    "fill-extrusion-height": 10
+                }
+            });
+
+            // 堅ろう建物
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 13,
+                "maxzoom": 18,
+                "id": "buildings3102",
+                "metadata": { "name": "堅ろう建物" },
+                "type": "fill-extrusion",
+                "source-layer": "building",
+                "filter": ["all", ["==", "ftCode", 3102], ["==", "$type", "Polygon"]],
+                "paint": {
+                    "fill-extrusion-color": "rgb(150,200,255)",
+                    "fill-extrusion-opacity": 0.8,
+                    "fill-extrusion-height": 40
+                }
+            });
+
+            // 高層建物
+            map.addLayer({
+                "source": "gsibv-vectortile-source-1-4-16",
+                "minzoom": 13,
+                "maxzoom": 18,
+                "id": "buildings3103",
+                "metadata": { "name": "高層建物" },
+                "type": "fill-extrusion",
+                "source-layer": "building",
+                "filter": ["all", ["==", "ftCode", 3103], ["==", "$type", "Polygon"]],
+                "paint": {
+                    "fill-extrusion-color": "rgb(0,255,255)",
+                    "fill-extrusion-opacity": 0.8,
+                    "fill-extrusion-height": 100
+                }
+            });
+
+            // 注記-河川名
+            map.addLayer({
+                "type": "symbol",
+                "id": "gsi-label-layer",
+                "source": "gsibv-vectortile-source-1-4-16",
+                "source-layer": "label",
+                "minzoom": 11,
+                "maxzoom": 16,
+                "filter": ["all", ["==", "ftCode", 100], ["==", "annoCtg", 322]],
+                "paint": {
+                    'text-color': 'rgba(0, 101, 203, 1)',
+                    "text-halo-color": "rgba(255, 255, 255, 1)",
+                    "text-halo-width": 1.0
+                },
+                "layout": {
+                    "text-size": 20,
+                    "text-font": ["Open Sans Bold"],
+                    "text-field": ["get", "knj"],
+                    "symbol-placement": "point",
+                    "text-allow-overlap": false,
+                    "visibility": "visible"
+                }
+            });
+
+            // 自然災害伝承碑
+            map.addSource('denshouhi', {
+                'type': 'geojson',
+                'data': './20230629.geojson',
+                attribution: '<a href="https://www.gsi.go.jp/bousaichiri/denshouhi_datainfo.html">自然災害伝承碑データ（国土地理院Webサイト）</a>'
+            });
+
+            map.loadImage('./img/location-pin2_red.png', // location-pinアイコンのURLを指定
+                function (error, image) {
+                    if (error) throw error;
+                    map.addImage('location-pin-2', image); // 'location-pin'という名前でアイコンを追加
+                }
+            );
+
+            // 自然災害伝承碑シンボルレイヤ
+            map.addLayer({
+                'id': 'denshouhi-1',
+                "type": "symbol",
+                'source': 'denshouhi',
+                "layout": {
+                    "icon-image": "location-pin-2",
+                    "icon-size": 0.5
+                }
+            });
+
+            // map.showTileBoundaries = true;
+
+        })
+
+        // 画像が存在するかどうかを確認する関数
+        async function checkImage(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch {
+                return false;
+            }
+        }
+
+        // 自然災害伝承碑ポップアップ表示
+        map.on('click', 'denshouhi-1', async (e) => {
+            var lng = e.features[0].geometry.coordinates[0];
+            var lat = e.features[0].geometry.coordinates[1];
+            var id = e.features[0].properties['ID'];
+            var himei = e.features[0].properties['碑名'];
+            var konryunen = e.features[0].properties['建立年'];
+            var shozaichi = e.features[0].properties['所在地'];
+            var saigaimei = e.features[0].properties['災害名'];
+            var saigaishubetsu = e.features[0].properties['災害種別'];
+            var denshonaiyo = e.features[0].properties['伝承内容'];
+
+            // 画像のURL（.jpgと.JPGの両方を試す）
+            let imgURL_jpg = "https://maps.gsi.go.jp/legend/disaster_lore/" + id.substring(0, 5) + "/" + id + ".jpg";
+            let imgURL_JPG = "https://maps.gsi.go.jp/legend/disaster_lore/" + id.substring(0, 5) + "/" + id + ".JPG";
+
+            // どちらの画像が存在するかを確認
+            let imgURL = await checkImage(imgURL_jpg) ? imgURL_jpg :
+                await checkImage(imgURL_JPG) ? imgURL_JPG :
+                    '';  // どちらの画像も存在しない場合は空の文字列を使用
+
+            // var imgURL = "https://maps.gsi.go.jp/legend/disaster_lore/" + id.substring(0, 5) + "/" + id + ".jpg";
+
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(
+                    '<div style="border-bottom:1px solid #000; font-size: 1.2em; color: red;"><strong>碑名: ' + himei + '</strong></div>' +
+                    '<div style="border-bottom:1px solid #000;">建立年: ' + konryunen + '</div>' +
+                    '<div style="border-bottom:1px solid #000;">所在地: ' + shozaichi + '</div>' +
+                    '<div style="border-bottom:1px solid #000;">災害名: ' + saigaimei + '</div>' +
+                    '<div style="border-bottom:1px solid #000;">災害種別: ' + saigaishubetsu + '</div>' +
+                    '<div style="border-bottom:1px solid #000;">伝承内容: ' + denshonaiyo + '</div>' +
+                    '<div><a href="' + imgURL + '" target="_blank"><img src="' + imgURL + '" alt="画像" style="width: 100%; height: auto;"></a></div>' +
+                    '<div style="border-bottom:1px solid #000;">ID: ' + id + '</div>' +
+                    '<div><a href="https://www.google.com/maps?q=' + lat + ',' + lng + '&hl=ja" target="_blank">🌎Google Maps</a></div>'
+                )
+                .addTo(map);
+        });
+    </script>
+</body>
+
+</html>
