@@ -183,12 +183,12 @@
             // style: 'building3d.json',
             style: 'std.json',
             // style: 'https://tile2.openstreetmap.jp/styles/osm-bright/style.json',
-            zoom: 12.6,
+            zoom: 13.13,
             minZoom: 1,
             maxZoom: 23,
-            pitch: 60,
-            bearing: 66.6,
-            center: [130.53534, 33.34053],
+            pitch: 0,
+            bearing: 0,
+            center: [140.29203, 35.42403],
             hash: true,
             attributionControl: false
         });
@@ -218,7 +218,7 @@
         // Attributionを折りたたみ表示
         map.addControl(new maplibregl.AttributionControl({
             compact: true,
-            customAttribution: '（<a href="https://twitter.com/syanseto" target="_blank">Twitter</a> | <a href="https://github.com/shi-works/gsi-landformclassification-with-floodarea-on-maplibre-gl-js" target="_blank">Github</a>） '
+            customAttribution: '（<a href="https://twitter.com/shi__works" target="_blank">Twitter</a> | <a href="https://github.com/shi-works/gsi-landformclassification-with-floodarea-on-maplibre-gl-js" target="_blank">Github</a>） '
         }));
 
         // 3D地形コントロール
@@ -537,29 +537,58 @@
             });
             */
 
-            // 浸水推定図輪郭線
-            map.addSource('shinsui-rinkaku', {
+            // 筑後川水系筑後川 浸水推定図輪郭線
+            map.addSource('shinsui-rinkaku-chikugogawa', {
                 'type': 'geojson',
                 'data': './筑後川水系筑後川_20230710.geojson',
                 attribution: '<a href="https://www.gsi.go.jp/BOUSAI/R5_0629_heavyrain.html">令和5年6月29日からの大雨による浸水推定図（筑後川水系 筑後川）浸水範囲の輪郭線（国土地理院Webサイト）</a>'
             });
 
-            // 浸水推定図輪郭線ラインレイヤ
+            // 筑後川水系筑後川 浸水推定図輪郭線ラインレイヤ
             map.addLayer({
-                'id': 'shinsui-rinkaku-line',
+                'id': 'shinsui-rinkaku-chikugogawa-line',
                 "type": "line",
-                'source': 'shinsui-rinkaku',
+                'source': 'shinsui-rinkaku-chikugogawa',
                 'paint': {
                     'line-color': '#FF0000',
                     'line-width': 2
                 }
             });
 
-            // 浸水推定図輪郭線ポリゴンレイヤ
+            // 筑後川水系筑後川 浸水推定図輪郭線ポリゴンレイヤ
             map.addLayer({
-                'id': 'shinsui-rinkaku-polygon',
+                'id': 'shinsui-rinkaku-chikugogawa-polygon',
                 "type": "fill",
-                'source': 'shinsui-rinkaku',
+                'source': 'shinsui-rinkaku-chikugogawa',
+                'paint': {
+                    'fill-color': '#FF0000',
+                    'fill-opacity': 0.1
+                }
+            });
+
+            // 一宮川水系（一宮川・豊田川・阿久川）茂原駅周辺 浸水推定図輪郭線
+            map.addSource('shinsui-rinkaku-ichinomiyagawa', {
+                'type': 'geojson',
+                'data': './4_茂原駅周辺（空中写真判読版）.geojson',
+                attribution: '<a href="https://www.gsi.go.jp/BOUSAI/R1_10gatsuheavyrain.html">令和元年(2019年)10月の低気圧に伴う大雨による浸水推定図（一宮川水系（一宮川・豊田川・阿久川）茂原駅周辺）浸水範囲の輪郭線（国土地理院Webサイト）</a>'
+            });
+
+            // 一宮川水系（一宮川・豊田川・阿久川）茂原駅周辺 浸水推定図輪郭線ラインレイヤ
+            map.addLayer({
+                'id': 'shinsui-rinkaku-ichinomiyagawa-line',
+                "type": "line",
+                'source': 'shinsui-rinkaku-ichinomiyagawa',
+                'paint': {
+                    'line-color': '#FF0000',
+                    'line-width': 2
+                }
+            });
+
+            // 一宮川水系（一宮川・豊田川・阿久川）茂原駅周辺 浸水推定図輪郭線ポリゴンレイヤ
+            map.addLayer({
+                'id': 'shinsui-rinkaku-ichinomiyagawa-polygon',
+                "type": "fill",
+                'source': 'shinsui-rinkaku-ichinomiyagawa',
                 'paint': {
                     'fill-color': '#FF0000',
                     'fill-opacity': 0.1
